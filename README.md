@@ -68,13 +68,6 @@ npm run dev
 - 前端：<http://localhost:3000>
 - 后端 API：<http://localhost:8000>
 
-**Windows 用户** 也可使用一键启动：
-
-```bash
-start_with_conda.bat
-```
-
-（需先执行 `conda activate kline-env` 或确保 conda 环境已激活）
 
 ## 项目结构
 
