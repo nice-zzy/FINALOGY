@@ -7,6 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 > FINALOGY shifts financial analysis from **rigid pattern classification** to **data-driven visual analogy**. Upload a candlestick chart or provide OHLC data, retrieve similar historical windows via learned embeddings, and generate LLM-based analysis reports.
+> Youtube Video: https://youtu.be/oq1_hxYAE9M
 
 ---
 
