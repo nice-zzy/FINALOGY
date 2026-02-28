@@ -1,4 +1,4 @@
-# K-line Similarity Analysis System
+# FINALOGY: A Vision-Language System for Candlestick Pattern Analogy
 
 A K-line (candlestick) similarity retrieval and analysis system.  
 Users can upload a candlestick chart or provide OHLC data, retrieve similar historical windows, and generate an LLM-based analysis report.
