@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/logo.png" alt="FINALOGY" width="196" />
+</p>
+
 # FINALOGY: A Vision-Language System for Candlestick Pattern Analogy
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -45,8 +49,8 @@ Traditional financial analysis relies on a fixed taxonomy of candlestick pattern
 **1. Clone the repository**
 
 ```bash
-git clone https://github.com/nice-zzy/FINALOGY.git
-cd FINALOGY
+git clone https://github.com/nice-zzy/FinAlogy.git
+cd FinAlogy
 ```
 
 **2. Install Node dependencies**
@@ -106,7 +110,7 @@ npm run dev
 ## 📦 Project Structure
 
 ```
-FINALOGY/
+FinAlogy/
 ├── apps/web           # Next.js frontend
 ├── services/api       # FastAPI backend (inference, retrieval)
 ├── services/training  # VICReg training and evaluation

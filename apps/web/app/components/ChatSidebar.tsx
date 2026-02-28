@@ -45,7 +45,7 @@ export function ChatSidebar({
           {!sidebarCollapsed && (
             <>
               <div className="sidebarHeaderRow">
-                <h1 className="appName">K-line Analyst</h1>
+                <h1 className="appName">FINALOGY</h1>
                 <button
                   type="button"
                   className="btnCollapse"

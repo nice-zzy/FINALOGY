@@ -2,7 +2,7 @@ import "./styles/globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 
 export const metadata = {
-  title: "K-line Analyst",
+  title: "FINALOGY",
   description: "Enter OHLC data or upload a candlestick chart to get an analysis report.",
 };
 
