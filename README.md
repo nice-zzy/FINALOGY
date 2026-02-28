@@ -2,7 +2,7 @@
   <img src="docs/logo.png" alt="FINALOGY" width="196" />
 </p>
 
-# FINALOGY: A Vision-Language System for Candlestick Pattern Analogy
+# FINALOGY:  A Multimodal Analogical Reasoning System for Financial K-Line Analysis
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
