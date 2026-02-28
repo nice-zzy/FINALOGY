@@ -1,12 +1,14 @@
 """
-分析已运行过的 VICReg 网格搜索结果：扫描 run_* 目录下的 lambda*，读取 checkpoint 并（可选）在测试集上评估 Recall@k，输出结果表并保存 JSON。
+分析已运行过的 VICReg 网格搜索结果：扫描 run_* 目录下的 lambda*，读取 checkpoint 并（可选）在测试集上评估 Recall@k 及「二、编码器检索」与 52 维一致性，输出结果表并保存 JSON。
 若该 run 下已有 grid_results.json，可用 --from_json 直接读表不再跑评估。
 
 用法（在项目根 kline 下，或 cd 到 services/training）：
   python scripts/analyze_vicreg_grid.py
   python scripts/analyze_vicreg_grid.py --grid_dir logs/vicreg_grid --run latest
+  python scripts/analyze_vicreg_grid.py --run run_20260210_125704   # 补算「二、编码器检索」，需 features_52d 存在
   python scripts/analyze_vicreg_grid.py --run run_20250207_143022 --no_eval
   python scripts/analyze_vicreg_grid.py --run run_20250207_143022 --from_json
+  python scripts/analyze_vicreg_grid.py --features-52d none         # 跳过 52 维与编码器检索
 """
 import sys
 import json
@@ -45,25 +47,41 @@ def _load_ckpt_info(ckpt_path: Path):
         return None
 
 
-def _eval_recall(ckpt_path: str, test_anchor: str, test_positive: str, test_meta: str, device: str):
-    """在测试集上算 Recall@1、Recall@3。失败返回 None。"""
+def _eval_recall(
+    ckpt_path: str,
+    test_anchor: str,
+    test_positive: str,
+    test_meta: str,
+    device: str,
+    features_52d_file: str = None,
+):
+    """在测试集上算 Recall@1、Recall@3 及「二、编码器检索」与 52 维一致性。失败返回 None。"""
     try:
         from inference_encoder import TrainedEncoder
         from evaluate.validate_model import evaluate_retrieval_accuracy
         encoder = TrainedEncoder(ckpt_path, device=device)
         res = evaluate_retrieval_accuracy(
-            encoder, test_anchor, test_positive, test_meta,
+            encoder,
+            test_anchor,
+            test_positive,
+            test_meta,
             top_k_list=[1, 3],
-            features_52d_file=None,
+            features_52d_file=features_52d_file,
             demo_save_dir=None,
             all_images_file=None,
             inference_index_dir=None,
         )
-        return {
+        out = {
             "recall_at_1": res.get("recall_at_k", {}).get(1),
             "recall_at_3": res.get("recall_at_k", {}).get(3),
             "mean_similarity": res.get("mean_similarity"),
         }
+        # 二、编码器检索（编码器相似度>0.85 的前 3 个 positive 与 52 维一致性）
+        if features_52d_file:
+            out["mean_similarity_encoder_retrieved"] = res.get("mean_similarity_encoder_anchor_vs_retrieved")
+            out["mean_similarity_52d_retrieved"] = res.get("mean_similarity_52d_anchor_vs_retrieved")
+            out["n_anchors_with_retrieved"] = res.get("n_anchors_with_retrieved_above_threshold")
+        return out
     except Exception:
         return None
 
@@ -122,6 +140,12 @@ def main():
         default="output/dow30_2010_2021/dataset_splits/test_pairs_metadata.json",
         help="测试集 pairs metadata",
     )
+    parser.add_argument(
+        "--features-52d",
+        type=str,
+        default="output/dow30_2010_2021/features_52d.npy",
+        help="52 维特征 npy，提供则输出「二、编码器检索」与 52 维一致性；传 none 跳过",
+    )
     parser.add_argument("--device", type=str, default="auto")
     parser.add_argument(
         "--from_json",
@@ -157,16 +181,21 @@ def main():
         results = data.get("results", [])
         best_lambda = data.get("best_lambda")
         criterion = data.get("criterion", "recall_at_3")
-        print("\n" + "=" * 70)
+        has_52d = any(r.get("mean_similarity_52d_retrieved") is not None for r in results)
+        print("\n" + "=" * 90)
         print("VICReg 网格搜索结果（来自 grid_results.json）")
-        print("=" * 70)
+        print("=" * 90)
         print(f"  Run: {run_dir.name}  选优指标: {criterion}")
         print()
-        header = ["λ=μ", "epoch", "best_loss", "recall@1", "recall@3"]
-        col_widths = [8, 8, 14, 10, 10]
+        if has_52d:
+            header = ["λ=μ", "epoch", "best_loss", "recall@1", "recall@3", "enc_ret", "52d_ret"]
+            col_widths = [8, 8, 12, 10, 10, 10, 10]
+        else:
+            header = ["λ=μ", "epoch", "best_loss", "recall@1", "recall@3"]
+            col_widths = [8, 8, 14, 10, 10]
         fmt = "  ".join(f"{{:>{w}}}" for w in col_widths)
         print(fmt.format(*header))
-        print("-" * 70)
+        print("-" * 90)
         for r in results:
             lam_s = str(r.get("lambda", "?"))
             epoch = r.get("epoch")
@@ -174,9 +203,17 @@ def main():
             loss_s = f"{r['best_loss']:.4f}" if r.get("best_loss") is not None else "-"
             r1_s = f"{r['recall_at_1']:.4f}" if r.get("recall_at_1") is not None else "-"
             r3_s = f"{r['recall_at_3']:.4f}" if r.get("recall_at_3") is not None else "-"
-            mark = "  ← 最佳" if best_lambda is not None and r.get("lambda") == best_lambda else ""
-            print(fmt.format(lam_s, epoch_s, loss_s, r1_s, r3_s) + mark)
-        print("=" * 70)
+            if has_52d:
+                enc_s = f"{r['mean_similarity_encoder_retrieved']:.4f}" if r.get("mean_similarity_encoder_retrieved") is not None else "-"
+                d52_s = f"{r['mean_similarity_52d_retrieved']:.4f}" if r.get("mean_similarity_52d_retrieved") is not None else "-"
+                mark = "  ← 最佳" if best_lambda is not None and r.get("lambda") == best_lambda else ""
+                print(fmt.format(lam_s, epoch_s, loss_s, r1_s, r3_s, enc_s, d52_s) + mark)
+            else:
+                mark = "  ← 最佳" if best_lambda is not None and r.get("lambda") == best_lambda else ""
+                print(fmt.format(lam_s, epoch_s, loss_s, r1_s, r3_s) + mark)
+        print("=" * 90)
+        if has_52d:
+            print("  enc_ret: 编码器检索(>0.85)前3个 positive 的编码器相似度均值；52d_ret: 同上 52 维相似度均值")
         if best_lambda is not None:
             best_dir = next((r.get("dir") for r in results if r.get("lambda") == best_lambda), "")
             print(f"  推荐: lambda_inv = lambda_var = {best_lambda}, lambda_cov = 1")
@@ -200,6 +237,7 @@ def main():
         return
 
     test_anchor_path = test_positive_path = test_meta_path = None
+    features_52d_path = None
     if not args.no_eval:
         test_anchor_path = str(_resolve(args.test_anchor, _training_dir))
         test_positive_path = str(_resolve(args.test_positive, _training_dir))
@@ -209,6 +247,13 @@ def main():
                 print(f"[警告] 测试集文件不存在: {p}，将跳过测试集评估（仅报 checkpoint 信息）")
                 test_anchor_path = None
                 break
+        if args.features_52d and args.features_52d.lower() != "none":
+            fp = _resolve(args.features_52d, _training_dir)
+            if fp.exists():
+                features_52d_path = str(fp)
+                print(f"已配置 52 维特征，将输出「二、编码器检索」与 52 维一致性")
+            else:
+                print(f"[警告] 52 维特征文件不存在: {fp}，将跳过「二、编码器检索」")
 
     results = []
     for lam, sub_dir, ckpt_path in lambda_dirs:
@@ -224,11 +269,21 @@ def main():
             continue
 
         if not args.no_eval and test_anchor_path:
-            ev = _eval_recall(str(ckpt_path), test_anchor_path, test_positive_path, test_meta_path, args.device)
+            ev = _eval_recall(
+                str(ckpt_path),
+                test_anchor_path,
+                test_positive_path,
+                test_meta_path,
+                args.device,
+                features_52d_file=features_52d_path,
+            )
             if ev:
                 row["recall_at_1"] = ev.get("recall_at_1")
                 row["recall_at_3"] = ev.get("recall_at_3")
                 row["mean_similarity"] = ev.get("mean_similarity")
+                row["mean_similarity_encoder_retrieved"] = ev.get("mean_similarity_encoder_retrieved")
+                row["mean_similarity_52d_retrieved"] = ev.get("mean_similarity_52d_retrieved")
+                row["n_anchors_with_retrieved"] = ev.get("n_anchors_with_retrieved")
             else:
                 row["eval_error"] = "测试集评估失败"
         results.append(row)
@@ -245,26 +300,41 @@ def main():
             best_row = min(valid, key=lambda r: r.get("best_loss") or float("inf")) if valid else None
 
     # 打印表
-    print("\n" + "=" * 70)
+    has_52d = any(r.get("mean_similarity_52d_retrieved") is not None for r in results)
+    print("\n" + "=" * 90)
     print("VICReg 网格搜索结果")
-    print("=" * 70)
+    print("=" * 90)
     print(f"  Run: {run_dir.name}")
     print(f"  选优指标: {args.criterion}" + ("（越大越好）" if args.criterion.startswith("recall") else "（越小越好）"))
     print()
-    header = ["λ=μ", "epoch", "best_loss", "recall@1", "recall@3"]
-    col_widths = [8, 8, 14, 10, 10]
+    if has_52d:
+        header = ["λ=μ", "epoch", "best_loss", "recall@1", "recall@3", "enc_ret", "52d_ret"]
+        col_widths = [8, 8, 12, 10, 10, 10, 10]
+    else:
+        header = ["λ=μ", "epoch", "best_loss", "recall@1", "recall@3"]
+        col_widths = [8, 8, 14, 10, 10]
     fmt = "  ".join(f"{{:>{w}}}" for w in col_widths)
     print(fmt.format(*header))
-    print("-" * 70)
+    print("-" * 90)
     for r in results:
         lam_s = str(r["lambda"]) if r.get("lambda") is not None else "?"
         epoch_s = str((r.get("epoch") or -1) + 1) if r.get("epoch") is not None else "-"
         loss_s = f"{r['best_loss']:.4f}" if r.get("best_loss") is not None else "-"
         r1_s = f"{r['recall_at_1']:.4f}" if r.get("recall_at_1") is not None else "-"
         r3_s = f"{r['recall_at_3']:.4f}" if r.get("recall_at_3") is not None else "-"
-        mark = "  ← 最佳" if best_row and r.get("lambda") == best_row.get("lambda") else ""
-        print(fmt.format(lam_s, epoch_s, loss_s, r1_s, r3_s) + mark)
-    print("=" * 70)
+        if has_52d:
+            v_enc = r.get("mean_similarity_encoder_retrieved")
+            v_52 = r.get("mean_similarity_52d_retrieved")
+            enc_s = f"{v_enc:.4f}" if v_enc is not None else "-"
+            d52_s = f"{v_52:.4f}" if v_52 is not None else "-"
+            mark = "  ← 最佳" if best_row and r.get("lambda") == best_row.get("lambda") else ""
+            print(fmt.format(lam_s, epoch_s, loss_s, r1_s, r3_s, enc_s, d52_s) + mark)
+        else:
+            mark = "  ← 最佳" if best_row and r.get("lambda") == best_row.get("lambda") else ""
+            print(fmt.format(lam_s, epoch_s, loss_s, r1_s, r3_s) + mark)
+    print("=" * 90)
+    if has_52d:
+        print("  enc_ret: 编码器检索(>0.85)前3个 positive 的编码器相似度均值；52d_ret: 同上 52 维相似度均值")
     if best_row:
         print(f"  推荐: lambda_inv = lambda_var = {best_row['lambda']}, lambda_cov = 1")
         print(f"  最佳模型目录: {best_row['dir']}")

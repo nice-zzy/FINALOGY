@@ -29,6 +29,7 @@ CONFIG = {
     "test_anchor_images": "output/dow30_2010_2021/dataset_splits/test_anchor_images.npy",
     "test_positive_images": "output/dow30_2010_2021/dataset_splits/test_positive_images.npy",
     "test_pairs_metadata": "output/dow30_2010_2021/dataset_splits/test_pairs_metadata.json",
+    "features_52d": "output/dow30_2010_2021/features_52d.npy",  # 提供则输出「二、编码器检索」与 52 维一致性
     "log_dir": "logs/vicreg_grid",  # 网格搜索根目录，与 logs/vicreg 分离
     "lambdas": [1.0, 5.0, 10.0, 25.0, 50.0],
     "num_epochs": 10,
@@ -40,13 +41,26 @@ CONFIG = {
 }
 
 
-def _eval_test_set_recall(checkpoint_path: str, test_anchor: str, test_positive: str, test_meta: str, device: str, top_k_list=(1, 3)):
-    """在测试集上算 Recall@k，返回 validate_model 的评估结果字典。"""
+def _eval_test_set_recall(
+    checkpoint_path: str,
+    test_anchor: str,
+    test_positive: str,
+    test_meta: str,
+    device: str,
+    top_k_list=(1, 3),
+    features_52d_file: str = None,
+):
+    """在测试集上算 Recall@k 及四组相似度，返回 validate_model 的评估结果字典。"""
     from inference_encoder import TrainedEncoder
     from evaluate.validate_model import evaluate_retrieval_accuracy
     encoder = TrainedEncoder(checkpoint_path, device=device)
     return evaluate_retrieval_accuracy(
-        encoder, test_anchor, test_positive, test_meta, top_k_list=list(top_k_list)
+        encoder,
+        test_anchor,
+        test_positive,
+        test_meta,
+        top_k_list=list(top_k_list),
+        features_52d_file=features_52d_file,
     )
 
 
@@ -68,6 +82,14 @@ def main():
     test_meta = str(_resolve(cfg["test_pairs_metadata"])) if cfg.get("test_pairs_metadata") else None
 
     use_test_set = all([test_anchor, test_positive, test_meta])
+    features_52d_path = None
+    if cfg.get("features_52d"):
+        fp = _resolve(cfg["features_52d"])
+        if fp.exists():
+            features_52d_path = str(fp)
+            print("已配置 52 维特征，将输出「二、编码器检索」与 52 维一致性")
+        else:
+            print(f"⚠️ 52 维特征文件不存在: {fp}，将跳过「二、编码器检索」")
     if use_test_set:
         for pth in (test_anchor, test_positive, test_meta):
             if not Path(pth).exists():
@@ -118,7 +140,13 @@ def main():
                 criterion = -1.0
             else:
                 res = _eval_test_set_recall(
-                    ckpt, test_anchor, test_positive, test_meta, cfg["device"], top_k_list=(1, 3)
+                    ckpt,
+                    test_anchor,
+                    test_positive,
+                    test_meta,
+                    cfg["device"],
+                    top_k_list=(1, 3),
+                    features_52d_file=features_52d_path,
                 )
                 recall = res["recall_at_k"]
                 criterion = recall.get(3, 0.0) if cfg["criterion_metric"] == "recall_at_3" else recall.get(1, 0.0)
