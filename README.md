@@ -10,7 +10,7 @@
 
 > FinAlogy shifts financial K-line analysis from **rigid pattern classification** to **data-driven visual analogy**. Upload a candlestick chart or provide OHLC data, retrieve similar historical windows via learned morphology-aware embeddings, and generate LLM-based analysis reports grounded in historical evidence.
 
-🎬 **Watch the demo video**: [https://youtu.be/oq1_hxYAE9M](https://youtu.be/oq1_hxYAE9M)
+🎬 **Watch the demo video**: [(https://youtu.be/SIreBcl__WU)]
 
 ---
 
