@@ -40,7 +40,7 @@ FinAlogy outperforms the Kronos autoregressive baseline by a clear margin, demon
 |---|---|---|---|
 | Barlow Twins | 0.975 | 0.995 | 0.785 |
 | SimSiam | 0.982 | 0.996 | 0.814 |
-| **VICReg (ours)** | **0.780** | **0.947** | **0.910** |
+| VICReg (ours) | 0.780 | 0.947 | **0.910** |
 
 VICReg achieves the highest 52D alignment despite lower encoder similarity on original pairs, indicating that its variance and covariance regularization better preserves morphology-discriminative structure. We adopt VICReg for FinAlogy.
 
@@ -52,7 +52,7 @@ Grid search over λ = µ ∈ {5, 10, 25, 50} with ν = 1 fixed. Note that Recall
 
 | λ = µ | Recall@1 | Recall@3 | enc_ret | 52D Alignment |
 |---|---|---|---|---|
-| **5** | **0.037** | **0.118** | 0.911 | **0.864** |
+| 5 | 0.037 | 0.118 | 0.911 | **0.864** |
 | 10 | 0.036 | 0.113 | 0.913 | 0.862 |
 | 25 | 0.039 | 0.106 | 0.913 | 0.830 |
 | 50 | 0.034 | 0.100 | 0.918 | 0.825 |
