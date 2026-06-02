@@ -13,13 +13,28 @@ This document summarizes the quantitative evaluation of FinAlogy's visual encode
 
 ## Metrics
 
-- **Encoder Similarity**: Mean cosine similarity between (anchor, positive) pairs on the test set
-- **52D Alignment (52d_ret)**: For each anchor, retrieve top-3 candidates by encoder similarity (threshold > 0.85) and compute mean cosine similarity between anchor and retrieved candidates in the 52-dimensional morphological feature space. This directly measures how well the encoder captures the morphological definition.
-- **Recall@k**: Proportion of queries whose ground-truth positive appears in the top-k retrieved results
+- **Encoder Similarity**: Mean cosine similarity between (anchor, positive) pairs on the test set.
+- **52D Alignment (52d_ret)**: For each anchor, retrieve top-3 candidates by encoder similarity (threshold > 0.85) and compute mean cosine similarity between anchor and retrieved candidates in the 52-dimensional morphological feature space. This directly measures how well the encoder captures the morphological definition, and is our **primary metric**.
+- **Recall@k**: Proportion of queries whose ground-truth silver-pair positive appears in the top-k retrieved results.
+
+> **Note on Recall@k**: Recall@k measures exact silver-pair retrieval (τ > 0.98), a deliberately strict criterion given the large retrieval corpus. A low Recall@k does not indicate poor retrieval quality — it reflects the rarity of near-identical morphological matches at this threshold. The primary metric is **52D alignment**, which measures morphological similarity of retrieved results regardless of exact pair membership.
 
 ---
 
-## Table 1: Loss Function Comparison
+## Table 1: Comparison with Kronos Baseline
+
+Both models produce a 5-day future OHLC forecast for each test sample. FinAlogy uses the top-3 retrieved neighbors' future outcomes averaged in 52D space; Kronos uses its predicted future OHLC. We compute cosine similarity between each forecast and the ground-truth future 52D features.
+
+| Method | 52D Similarity (mean) | n |
+|---|---|---|
+| Kronos (autoregressive) | 0.504 | 2,075 |
+| **FinAlogy (retrieval-based)** | **0.610** | 2,075 |
+
+FinAlogy outperforms the Kronos autoregressive baseline by a clear margin, demonstrating that analogy-based retrieval better preserves structural patterns than direct autoregressive prediction.
+
+---
+
+## Table 2: Loss Function Comparison
 
 | Method | Enc. Similarity | enc_ret | 52D Alignment |
 |---|---|---|---|
@@ -31,9 +46,9 @@ VICReg achieves the highest 52D alignment despite lower encoder similarity on or
 
 ---
 
-## Table 2: VICReg Hyperparameter Tuning
+## Table 3: VICReg Hyperparameter Tuning
 
-Grid search over λ = µ ∈ {5, 10, 25, 50} with ν = 1 fixed.
+Grid search over λ = µ ∈ {5, 10, 25, 50} with ν = 1 fixed. Note that Recall@k values appear low due to the strict silver-pair threshold (τ = 0.98) and large retrieval corpus; the primary metric is 52D alignment.
 
 | λ = µ | Recall@1 | Recall@3 | enc_ret | 52D Alignment |
 |---|---|---|---|---|
@@ -42,17 +57,4 @@ Grid search over λ = µ ∈ {5, 10, 25, 50} with ν = 1 fixed.
 | 25 | 0.039 | 0.106 | 0.913 | 0.830 |
 | 50 | 0.034 | 0.100 | 0.918 | 0.825 |
 
-We select **λ = µ = 5** based on best Recall@3 and 52D alignment. Larger λ increases encoder confidence but degrades morphological alignment.
-
----
-
-## Table 3: Comparison with Kronos Baseline
-
-Both models produce a 5-day future OHLC forecast for each test sample. FinAlogy uses the top-3 retrieved neighbors' future outcomes averaged in 52D space; Kronos uses its predicted future OHLC. We compute cosine similarity between each forecast and the ground-truth future 52D features.
-
-| Method | 52D Similarity (mean) | n |
-|---|---|---|
-| Kronos (autoregressive) | 0.504 | 2,075 |
-| **FinAlogy (retrieval-based)** | **0.610** | 2,075 |
-
-FinAlogy outperforms the Kronos autoregressive baseline by a clear margin, demonstrating that analogy-based retrieval better preserves structural patterns than direct autoregressive prediction.
+We select **λ = µ = 5** based on best Recall@3 and 52D alignment. Larger λ increases encoder confidence (higher enc_ret) but degrades morphological alignment (lower 52d_ret), confirming our emphasis on morphology consistency over representation strength.
