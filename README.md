@@ -156,6 +156,17 @@ FinAlogy/
 
 ## 📊 Quantitative Results
 
+## Table 1: Comparison with Kronos Baseline
+
+Both models produce a 5-day future OHLC forecast for each test sample. FinAlogy uses the top-3 retrieved neighbors' future outcomes averaged in 52D space; Kronos uses its predicted future OHLC. We compute cosine similarity between each forecast and the ground-truth future 52D features.
+
+| Method | 52D Similarity (mean) | n |
+|---|---|---|
+| Kronos (autoregressive) | 0.504 | 2,075 |
+| **FinAlogy (retrieval-based)** | **0.610** | 2,075 |
+
+FinAlogy outperforms the Kronos autoregressive baseline by a clear margin, demonstrating that analogy-based retrieval better preserves structural patterns than direct autoregressive prediction.
+
 See [docs/results.md](docs/results.md) for full evaluation results, including:
 - Loss function comparison (VICReg vs. Barlow Twins vs. SimSiam)
 - VICReg hyperparameter tuning
