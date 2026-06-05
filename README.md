@@ -18,11 +18,16 @@
 
 Traditional financial analysis relies on a fixed taxonomy of candlestick patterns (e.g., "Hammer", "Engulfing"). Yet these predefined rules fail to cover the vast diversity of real-world K-line sequences. Analysts need to ask: *"When did the market show a similar shape before? What happened next?"*—but rigid classification cannot answer this.
 
+![K-line Patterns](docs/kline_pattern.png)
+
 **FinAlogy** addresses this gap with a three-stage pipeline:
 
 1. **Visual Encoder**: A CLIP-ViT-B/32 backbone fine-tuned with VICReg self-supervised learning on large-scale DOW30 historical K-line data (2010–2021), capturing morphological features such as body size, shadow structure, and local trend direction while remaining invariant to absolute price scales.
 2. **Retrieval Module**: K-NN search over a vector database of historical K-line segments, returning the top-k most morphologically analogous cases with their subsequent price movements.
 3. **RAG Pipeline**: An LLM synthesizes retrieved historical cases into professional, interpretable analytical reports covering trend outlook, key price levels, and risk warnings.
+
+![Framework](docs/framework.png)
+
 
 ---
 
